@@ -136,7 +136,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
         if isinstance(handler_config, MiniCPMConfig):
             model_name = handler_config.model_name
         project_dir = DirectoryInfo.get_project_dir()
-        model_path = os.path.join(project_dir, engine_config.model_root, model_name)
+        model_path = "/opt/data/models/OpenBMB/MiniCPM-o-2_6"
         if model_name == "MiniCPM-o-2_6-int4":
             # noinspection PyUnresolvedReferences
             logger.warning(f"python path: {sys.path}")
@@ -172,7 +172,8 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
         )
         self.model.init_tts()
         #self.model.to(self.device).eval()
-        ref_audio_path = os.path.join(self.handler_root, "MiniCPM-o", "assets", "ref_audios", 'default.wav')
+        #ref_audio_path = os.path.join(self.handler_root, "MiniCPM-o", "assets", "ref_audios", 'default.wav')
+        ref_audio_path = "/opt/data/models/OpenBMB/MiniCPM-o-2_6/assets/demo.wav"
         self.model.eval()
         self.ref_audio, _ = librosa.load(ref_audio_path, sr=16000, mono=True)
 
