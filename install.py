@@ -100,7 +100,7 @@ if __name__ == "__main__":
     if not is_venv_active():
         print("Error: Not running in a virtual environment.")
         print("Create and activate a venv first.")
-        sys.exit(1)
+        #sys.exit(1)
 
     args = parse_args()
     config = load_configs(args)

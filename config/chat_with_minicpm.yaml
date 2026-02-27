@@ -1,6 +1,6 @@
 default:
   logger:
-    log_level: "INFO"
+    log_level: "DEBUG"
   service:
     host: "0.0.0.0"
     port: 8282
@@ -35,6 +35,6 @@ default:
         module: avatar/liteavatar/avatar_handler_liteavatar
         avatar_name: 20250408/sample_data
         fps: 25
-        debug: false
+        debug: true
         enable_fast_mode: false
         use_gpu: false

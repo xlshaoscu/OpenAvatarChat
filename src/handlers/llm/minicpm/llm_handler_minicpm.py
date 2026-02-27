@@ -11,6 +11,7 @@ import librosa
 import numpy as np
 # noinspection PyPackageRequirements
 import torch
+import torch_npu
 from loguru import logger
 from pydantic import BaseModel, Field
 from transformers import AutoModel, AutoTokenizer
@@ -103,7 +104,8 @@ class MiniCPMContext(HandlerContext):
 class HandlerS2SMiniCPM(HandlerBase, ABC):
     def __init__(self):
         super().__init__()
-        self.device = 'cuda:0'
+        #self.device = 'cuda:0'
+        self.device = 'npu:0'
         self.model = None
         self.tokenizer = None
         self.ref_audio = None
@@ -159,6 +161,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
             with torch.no_grad():
                 self.model = AutoModel.from_pretrained(
                     model_path,
+                    device_map=self.device,
                     trust_remote_code=True,
                     torch_dtype=torch.bfloat16,
                     attn_implementation='sdpa',
@@ -168,8 +171,9 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
             trust_remote_code=True,
         )
         self.model.init_tts()
-        self.model.to(self.device).eval()
+        #self.model.to(self.device).eval()
         ref_audio_path = os.path.join(self.handler_root, "MiniCPM-o", "assets", "ref_audios", 'default.wav')
+        self.model.eval()
         self.ref_audio, _ = librosa.load(ref_audio_path, sr=16000, mono=True)
 
     def create_context(self, session_context: SessionContext,
