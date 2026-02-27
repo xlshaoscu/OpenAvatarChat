@@ -251,7 +251,7 @@ class LiteAvatarWorker:
             while True:
                 time.sleep(1)
         except Exception as e:
-            logger.error(f"Error in avatar process: {e}")
+            logger.exception(f"Error in avatar process: {e}")
         finally:
             if hasattr(self, 'shm_pool') and self.shm_pool is not None:
                 self.shm_pool.cleanup()
