@@ -188,6 +188,7 @@ class RtcStream(AsyncAudioVideoStreamHandler):
         )
 
     def set_channel(self, channel):
+            logger.error("Get chat data")
             super().set_channel(channel)
             self.chat_channel = channel
             

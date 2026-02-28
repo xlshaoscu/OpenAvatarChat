@@ -1,63 +1,25 @@
 import asyncio
 import json
-import numpy as np
-from aiortc import RTCPeerConnection, RTCSessionDescription, MediaStreamTrack
-from aiortc.contrib.media import MediaPlayer, MediaRecorder
+from aiortc import RTCPeerConnection, RTCSessionDescription
 import aiohttp
 import time
 import ssl  # 导入 ssl 模块
 
 
-class TestAudioTrack(MediaStreamTrack):
-    """测试音频轨道"""
-    kind = "audio"
-
-    def __init__(self):
-        super().__init__()
-        self.sample_rate = 16000
-        self.samples_per_frame = 160  # 10ms per frame
-
-    async def recv(self):
-        # 生成正弦波音频
-        t = time.time()
-        samples = np.arange(self.samples_per_frame)
-        waveform = np.sin(2 * np.pi * 440 * (t + samples / self.sample_rate))
-        frame = (waveform * 32767).astype(np.int16)
-        return frame.tobytes()
-
-
-class TestVideoTrack(MediaStreamTrack):
-    """测试视频轨道"""
-    kind = "video"
-
-    def __init__(self):
-        super().__init__()
-        self.width = 640
-        self.height = 480
-        self.fps = 30
-
-    async def recv(self):
-        # 生成测试视频帧（红色背景）
-        frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-        frame[:, :, 0] = 255  # 红色
-        return frame
-
-
 async def test_webrtc_client():
-    """测试WebRTC客户端"""
+    """测试WebRTC客户端 - 仅发送文字消息"""
     print("开始WebRTC测试...")
 
+    # 服务配置
+    server_url = "https://localhost:8282"
+    ws_url = "wss://localhost:8282"
+
     # 1. 获取初始化配置
-    # 创建不验证SSL证书的SSL上下文
-    #ssl_context = ssl.create_default_context()
-    #ssl_context.check_hostname = False  # 禁用主机名检查
-    #ssl_context.verify_mode = ssl.CERT_NONE  # 禁用证书验证
     connector = aiohttp.TCPConnector(ssl=False)
     
-    # 1. 获取初始化配置
     async with aiohttp.ClientSession(connector=connector) as session:
         try:
-            async with session.get("https://localhost:8282/openavatarchat/initconfig") as response:
+            async with session.get(f"{server_url}/openavatarchat/initconfig") as response:
                 if response.status == 200:
                     config = await response.json()
                     print("✓ 获取配置成功")
@@ -70,37 +32,27 @@ async def test_webrtc_client():
             return
 
     # 2. 创建RTCPeerConnection
-    pc = RTCPeerConnection()
+    rtc_config = {
+        "iceServers": [
+            {"urls": "stun:stun.l.google.com:19302"}
+        ]
+    }
+    pc = RTCPeerConnection(rtc_config)
     print("✓ 创建RTCPeerConnection成功")
 
-    # 3. 添加媒体轨道
-    audio_track = TestAudioTrack()
-    video_track = TestVideoTrack()
-    pc.addTrack(audio_track)
-    pc.addTrack(video_track)
-    print("✓ 添加媒体轨道成功")
-
-    # 4. 处理远程流
-    @pc.on("track")
-    def on_track(track):
-        print(f"✓ 收到远程轨道: {track.kind}")
-        if track.kind == "audio":
-            print("  - 远程音频轨道")
-        elif track.kind == "video":
-            print("  - 远程视频轨道")
-
-    # 5. 处理数据通道
+    # 3. 处理数据通道
     data_channel = pc.createDataChannel("chat")
 
     @data_channel.on("open")
     def on_open():
         print("✓ 数据通道已打开")
         # 发送测试消息
-        data_channel.send(json.dumps({
+        test_message = json.dumps({
             "type": "chat",
             "data": "Hello from test client!"
-        }))
-        print("✓ 发送测试消息")
+        })
+        data_channel.send(test_message)
+        print("✓ 发送测试消息: Hello from test client!")
 
     @data_channel.on("message")
     def on_message(message):
@@ -110,42 +62,74 @@ async def test_webrtc_client():
     def on_close():
         print("✗ 数据通道已关闭")
 
-    # 6. 处理ICE候选
+    # 4. 处理ICE候选
+    ice_candidates = []
     @pc.on("icecandidate")
     def on_icecandidate(candidate):
         if candidate:
+            ice_candidates.append(candidate)
             print(f"  ICE候选: {candidate.candidate[:50]}...")
 
-    # 7. 创建offer
+    # 5. 创建offer
     offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
     print("✓ 创建offer成功")
-    print(f"  Offer SDP长度: {len(offer.sdp)}")
 
-    # 8. 模拟信令交换（实际项目中需要通过WebSocket发送）
-    print("模拟信令交换...")
-    await asyncio.sleep(1)
+    # 6. 实际信令交换（通过WebSocket）
+    print("开始信令交换...")
+    try:
+        # 创建WebSocket连接
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.ws_connect(f"{ws_url}/ws") as ws:
+                print("✓ WebSocket连接成功")
+                
+                # 发送offer
+                offer_data = {
+                    "type": "offer",
+                    "sdp": offer.sdp
+                }
+                await ws.send_json(offer_data)
+                print("✓ 发送offer到服务器")
+                
+                # 接收answer
+                async for msg in ws:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        data = json.loads(msg.data)
+                        if data.get("type") == "answer":
+                            print("✓ 收到服务器的answer")
+                            answer = RTCSessionDescription(sdp=data["sdp"], type="answer")
+                            await pc.setRemoteDescription(answer)
+                            print("✓ 设置远程描述成功")
+                            
+                            # 发送ICE候选
+                            for candidate in ice_candidates:
+                                candidate_data = {
+                                    "type": "ice-candidate",
+                                    "candidate": candidate.candidate,
+                                    "sdpMid": candidate.sdpMid,
+                                    "sdpMLineIndex": candidate.sdpMLineIndex
+                                }
+                                await ws.send_json(candidate_data)
+                            print("✓ 发送ICE候选到服务器")
+                            break
+                    elif msg.type == aiohttp.WSMsgType.ERROR:
+                        print(f"✗ WebSocket错误: {msg.data}")
+                        break
+    except Exception as e:
+        print(f"✗ 信令交换失败: {e}")
+        # 继续执行，即使信令交换失败
 
-    # 9. 保持连接
+    # 7. 保持连接
     print("测试连接中...")
     try:
-        # 保持连接10秒
-        for i in range(10):
-            print(f"  连接保持中... {i + 1}/10")
+        # 保持连接5秒，确保消息发送
+        for i in range(5):
+            print(f"  连接保持中... {i + 1}/5")
             await asyncio.sleep(1)
-
-            # 每隔2秒发送一条消息
-            if (i + 1) % 2 == 0:
-                if data_channel.readyState == "open":
-                    data_channel.send(json.dumps({
-                        "type": "chat",
-                        "data": f"Test message {i + 1}"
-                    }))
-                    print(f"  ✓ 发送消息 {i + 1}")
     except KeyboardInterrupt:
         print("\n用户中断测试")
 
-    # 10. 关闭连接
+    # 8. 关闭连接
     print("关闭连接...")
     await pc.close()
     print("✓ 连接已关闭")
