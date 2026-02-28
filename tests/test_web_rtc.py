@@ -49,14 +49,15 @@ async def test_webrtc_client():
 
     # 1. 获取初始化配置
     # 创建不验证SSL证书的SSL上下文
-    ssl_context = ssl.create_default_context()
-    ssl_context.check_hostname = False  # 禁用主机名检查
-    ssl_context.verify_mode = ssl.CERT_NONE  # 禁用证书验证
-
+    #ssl_context = ssl.create_default_context()
+    #ssl_context.check_hostname = False  # 禁用主机名检查
+    #ssl_context.verify_mode = ssl.CERT_NONE  # 禁用证书验证
+    connector = aiohttp.TCPConnector(ssl=False)
+    
     # 1. 获取初始化配置
-    async with aiohttp.ClientSession(ssl=ssl_context) as session:
+    async with aiohttp.ClientSession(connector=connector) as session:
         try:
-            async with session.get("http://localhost:8282/openavatarchat/initconfig") as response:
+            async with session.get("https://localhost:8282/openavatarchat/initconfig") as response:
                 if response.status == 200:
                     config = await response.json()
                     print("✓ 获取配置成功")
