@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+
 from aiortc import RTCPeerConnection, RTCSessionDescription
 import aiohttp
 import time
@@ -111,7 +113,7 @@ async def test_webrtc_client():
                         print(f"✗ WebSocket错误: {msg.data}")
                         break
     except Exception as e:
-        print(f"✗ 信令交换失败: {e}")
+        logging.exception(f"✗ 信令交换失败: {e}")
         # 继续执行，即使信令交换失败
 
     # 7. 保持连接
