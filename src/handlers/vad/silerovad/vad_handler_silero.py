@@ -60,6 +60,7 @@ class HumanAudioVADContext(HandlerContext):
         self.slice_context.flush()
 
     def _update_status_on_pre_start(self, clip: np.ndarray, _timestamp: Optional[int] = None):
+        logger.info("******VAD pre_start******")
         if self.speech_length >= self.config.start_delay:
             head_sample_id = None
             self.speaking_status = SpeakingStatus.START
