@@ -31,13 +31,8 @@ async def test_webrtc_client():
             print(f"✗ 连接服务失败: {e}")
             return
 
-    # 2. 创建RTCPeerConnection
-    rtc_config = {
-        "iceServers": [
-            {"urls": "stun:stun.l.google.com:19302"}
-        ]
-    }
-    pc = RTCPeerConnection(rtc_config)
+    # 2. 创建RTCPeerConnection - 使用默认配置
+    pc = RTCPeerConnection()
     print("✓ 创建RTCPeerConnection成功")
 
     # 3. 处理数据通道
