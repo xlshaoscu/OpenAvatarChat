@@ -214,6 +214,7 @@ class HandlerAudioVAD(HandlerBase, ABC):
 
     def handle(self, context: HandlerContext, inputs: ChatData,
                output_definitions: Dict[ChatDataType, HandlerDataInfo]):
+        logger.error("******VAD handle******")
         context = cast(HumanAudioVADContext, context)
         output_definition = output_definitions.get(ChatDataType.HUMAN_AUDIO).definition
         if not context.shared_states.enable_vad:

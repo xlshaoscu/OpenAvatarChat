@@ -160,6 +160,7 @@ class RtcStream(AsyncAudioVideoStreamHandler):
             raise
 
     async def receive(self, frame: tuple[int, np.ndarray]):
+        logger.error("Receive data")
         if self.client_session_delegate is None:
             return
         timestamp = self.client_session_delegate.get_timestamp()
