@@ -16,10 +16,12 @@ async def test_webrtc_client():
     server_url = "https://localhost:8282"
     ws_url = "wss://localhost:8282"
 
-    # 1. 获取初始化配置
+    # 创建连接器
     connector = aiohttp.TCPConnector(ssl=False)
     
+    # 创建单个ClientSession，用于所有请求
     async with aiohttp.ClientSession(connector=connector) as session:
+        # 1. 获取初始化配置
         try:
             async with session.get(f"{server_url}/openavatarchat/initconfig") as response:
                 if response.status == 200:
@@ -33,50 +35,49 @@ async def test_webrtc_client():
             print(f"✗ 连接服务失败: {e}")
             return
 
-    # 2. 创建RTCPeerConnection - 使用默认配置
-    pc = RTCPeerConnection()
-    print("✓ 创建RTCPeerConnection成功")
+        # 2. 创建RTCPeerConnection - 使用默认配置
+        pc = RTCPeerConnection()
+        print("✓ 创建RTCPeerConnection成功")
 
-    # 3. 处理数据通道
-    data_channel = pc.createDataChannel("chat")
+        # 3. 处理数据通道
+        data_channel = pc.createDataChannel("chat")
 
-    @data_channel.on("open")
-    def on_open():
-        print("✓ 数据通道已打开")
-        # 发送测试消息
-        test_message = json.dumps({
-            "type": "chat",
-            "data": "Hello from test client!"
-        })
-        data_channel.send(test_message)
-        print("✓ 发送测试消息: Hello from test client!")
+        @data_channel.on("open")
+        def on_open():
+            print("✓ 数据通道已打开")
+            # 发送测试消息
+            test_message = json.dumps({
+                "type": "chat",
+                "data": "Hello from test client!"
+            })
+            data_channel.send(test_message)
+            print("✓ 发送测试消息: Hello from test client!")
 
-    @data_channel.on("message")
-    def on_message(message):
-        print(f"✓ 收到消息: {message}")
+        @data_channel.on("message")
+        def on_message(message):
+            print(f"✓ 收到消息: {message}")
 
-    @data_channel.on("close")
-    def on_close():
-        print("✗ 数据通道已关闭")
+        @data_channel.on("close")
+        def on_close():
+            print("✗ 数据通道已关闭")
 
-    # 4. 处理ICE候选
-    ice_candidates = []
-    @pc.on("icecandidate")
-    def on_icecandidate(candidate):
-        if candidate:
-            ice_candidates.append(candidate)
-            print(f"  ICE候选: {candidate.candidate[:50]}...")
+        # 4. 处理ICE候选
+        ice_candidates = []
+        @pc.on("icecandidate")
+        def on_icecandidate(candidate):
+            if candidate:
+                ice_candidates.append(candidate)
+                print(f"  ICE候选: {candidate.candidate[:50]}...")
 
-    # 5. 创建offer
-    offer = await pc.createOffer()
-    await pc.setLocalDescription(offer)
-    print("✓ 创建offer成功")
+        # 5. 创建offer
+        offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        print("✓ 创建offer成功")
 
-    # 6. 实际信令交换（通过WebSocket）
-    print("开始信令交换...")
-    try:
-        # 创建WebSocket连接
-        async with aiohttp.ClientSession(connector=connector) as session:
+        # 6. 实际信令交换（通过WebSocket）
+        print("开始信令交换...")
+        try:
+            # 使用同一个session创建WebSocket连接
             async with session.ws_connect(f"{ws_url}/ws") as ws:
                 print("✓ WebSocket连接成功")
                 
@@ -112,25 +113,25 @@ async def test_webrtc_client():
                     elif msg.type == aiohttp.WSMsgType.ERROR:
                         print(f"✗ WebSocket错误: {msg.data}")
                         break
-    except Exception as e:
-        logging.exception(f"✗ 信令交换失败: {e}")
-        # 继续执行，即使信令交换失败
+        except Exception as e:
+            logging.exception(f"✗ 信令交换失败: {e}")
+            # 继续执行，即使信令交换失败
 
-    # 7. 保持连接
-    print("测试连接中...")
-    try:
-        # 保持连接5秒，确保消息发送
-        for i in range(5):
-            print(f"  连接保持中... {i + 1}/5")
-            await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        print("\n用户中断测试")
+        # 7. 保持连接
+        print("测试连接中...")
+        try:
+            # 保持连接5秒，确保消息发送
+            for i in range(5):
+                print(f"  连接保持中... {i + 1}/5")
+                await asyncio.sleep(1)
+        except KeyboardInterrupt:
+            print("\n用户中断测试")
 
-    # 8. 关闭连接
-    print("关闭连接...")
-    await pc.close()
-    print("✓ 连接已关闭")
-    print("测试完成！")
+        # 8. 关闭连接
+        print("关闭连接...")
+        await pc.close()
+        print("✓ 连接已关闭")
+        print("测试完成！")
 
 
 if __name__ == "__main__":
