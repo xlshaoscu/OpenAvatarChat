@@ -25,14 +25,18 @@ class BlackVideoTrack(VideoStreamTrack):
     def __init__(self):
         super().__init__()
         self.kind = "video"
+        self._pts = 0
+        self._time_base = 1/30
 
     async def recv(self):
-        pts, time_base = await self.next_timestamp()
         # 生成 640x480 黑色视频帧
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
         video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
-        video_frame.pts = pts
-        video_frame.time_base = time_base
+        
+        video_frame.pts = self._pts
+        video_frame.time_base = self._time_base
+        self._pts += 1
+        
         return video_frame
 
 
@@ -41,14 +45,18 @@ class SilentAudioTrack(AudioStreamTrack):
     def __init__(self):
         super().__init__()
         self.kind = "audio"
+        self._pts = 0
+        self._time_base = 1/48000  # 48kHz
 
     async def recv(self):
-        pts, time_base = await self.next_timestamp()
         # 生成静音音频帧 (48000Hz, 20ms = 960 samples)
-        frame = np.zeros(960, dtype=np.int16)
+        frame = np.zeros((1, 960), dtype=np.int16)  # [channels, samples]
         audio_frame = AudioFrame.from_ndarray(frame, format="s16", layout="mono")
-        audio_frame.pts = pts
-        audio_frame.time_base = time_base
+        
+        audio_frame.pts = self._pts
+        audio_frame.time_base = self._time_base
+        self._pts += 960
+        
         return audio_frame
 
 
