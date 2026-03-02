@@ -27,6 +27,8 @@ class BlackVideoTrack(VideoStreamTrack):
         super().__init__()
         self.kind = "video"
         self._pts = 0
+        self._sample_rate = 48000
+        self._samples_per_frame = 960  # 20ms
 
     async def recv(self):
         # 生成 640x480 黑色视频帧
@@ -46,16 +48,24 @@ class SilentAudioTrack(AudioStreamTrack):
         super().__init__()
         self.kind = "audio"
         self._pts = 0
+        self._sample_rate = 48000
+        self._samples_per_frame = 960  # 20ms
 
     async def recv(self):
-        # 生成静音音频帧 (48000Hz, 20ms = 960 samples)
-        frame = np.zeros((1, 960), dtype=np.int16)  # [channels, samples]
-        audio_frame = AudioFrame.from_ndarray(frame, format="s16", layout="mono")
-        
+        # 生成静音数据：形状 (960,) 的 int16 数组（单声道 packed）
+        samples = np.zeros(self._samples_per_frame, dtype=np.int16)
+        # 或者使用浮点格式 samples = np.zeros(self._samples_per_frame, dtype=np.float32)
+
+        audio_frame = av.AudioFrame.from_ndarray(
+            samples,
+            format="s16",  # 如果使用浮点，改为 "flt"
+            layout="mono"
+        )
+        audio_frame.sample_rate = self._sample_rate  # 关键：必须设置！
         audio_frame.pts = self._pts
-        audio_frame.time_base = Fraction(1, 48000)  # 48kHz
-        self._pts += 960
-        
+        audio_frame.time_base = Fraction(1, self._sample_rate)
+
+        self._pts += self._samples_per_frame
         return audio_frame
 
 
