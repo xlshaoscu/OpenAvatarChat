@@ -17,6 +17,7 @@ class LiteAvatarWorkerManager:
             time.sleep(5)
     
     def start_worker(self):
+        logger.error(f"start worker, worker_count: {len(self.lite_avatar_workers)}")
         for worker in self.lite_avatar_workers:
             if worker.get_status() == WorkerStatus.IDLE:
                 worker.recruit()
