@@ -9,6 +9,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from loguru import logger
+import logging
 
 from engine_utils.directory_info import DirectoryInfo
 from service.service_utils.logger_utils import config_loggers
@@ -71,6 +72,7 @@ def setup_demo():
 
 
 def main():
+    logging.getLogger("fastrtc").setLevel(logging.DEBUG)
     args = parse_args()
     logger_config, service_config, engine_config = load_configs(args)
 
