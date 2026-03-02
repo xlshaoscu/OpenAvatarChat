@@ -53,7 +53,7 @@ class SilentAudioTrack(AudioStreamTrack):
 
     async def recv(self):
         # 生成静音数据：形状 (960,) 的 int16 数组（单声道 packed）
-        samples = np.zeros((self._samples_per_frame, 1), dtype=np.int16)
+        samples = np.zeros((1, self._samples_per_frame), dtype=np.int16)
         # 或者使用浮点格式 samples = np.zeros(self._samples_per_frame, dtype=np.float32)
 
         audio_frame = av.AudioFrame.from_ndarray(
