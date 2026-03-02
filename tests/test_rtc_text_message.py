@@ -7,6 +7,7 @@ import string
 import sys
 import numpy as np
 import av
+from fractions import Fraction
 
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration
 from aiortc.mediastreams import VideoStreamTrack, AudioStreamTrack
@@ -26,7 +27,6 @@ class BlackVideoTrack(VideoStreamTrack):
         super().__init__()
         self.kind = "video"
         self._pts = 0
-        self._time_base = 1/30
 
     async def recv(self):
         # 生成 640x480 黑色视频帧
@@ -34,7 +34,7 @@ class BlackVideoTrack(VideoStreamTrack):
         video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
         
         video_frame.pts = self._pts
-        video_frame.time_base = self._time_base
+        video_frame.time_base = Fraction(1, 30)  # 30fps
         self._pts += 1
         
         return video_frame
@@ -46,7 +46,6 @@ class SilentAudioTrack(AudioStreamTrack):
         super().__init__()
         self.kind = "audio"
         self._pts = 0
-        self._time_base = 1/48000  # 48kHz
 
     async def recv(self):
         # 生成静音音频帧 (48000Hz, 20ms = 960 samples)
@@ -54,7 +53,7 @@ class SilentAudioTrack(AudioStreamTrack):
         audio_frame = AudioFrame.from_ndarray(frame, format="s16", layout="mono")
         
         audio_frame.pts = self._pts
-        audio_frame.time_base = self._time_base
+        audio_frame.time_base = Fraction(1, 48000)  # 48kHz
         self._pts += 960
         
         return audio_frame
@@ -81,7 +80,7 @@ async def test_rtc_text_message():
         logger.exception("连接服务失败")
         return
 
-    # 2. 创建 RTCPeerConnection (模拟前端: new RTCPeerConnection())
+    # 2. 创建 RTCPeerConnection
     try:
         rtc_config = RTCConfiguration()
         rtc_config.iceServers = []
@@ -91,11 +90,11 @@ async def test_rtc_text_message():
         logger.exception("创建RTCPeerConnection失败")
         return
 
-    # 3. 创建本地音视频轨道 (模拟前端: navigator.mediaDevices.getUserMedia())
+    # 3. 创建本地音视频轨道
     video_track = BlackVideoTrack()
     audio_track = SilentAudioTrack()
 
-    # 4. 添加轨道到 RTCPeerConnection (模拟前端: pc.addTrack(track, stream))
+    # 4. 添加轨道到 RTCPeerConnection
     try:
         video_sender = pc.addTrack(video_track)
         audio_sender = pc.addTrack(audio_track)
@@ -104,7 +103,7 @@ async def test_rtc_text_message():
         logger.exception("添加音视频轨道失败")
         return
 
-    # 5. 创建 Data Channel (模拟前端: pc.createDataChannel('text'))
+    # 5. 创建 Data Channel
     try:
         data_channel = pc.createDataChannel('text')
         logger.info("创建数据通道成功")
@@ -112,7 +111,7 @@ async def test_rtc_text_message():
         logger.exception("创建数据通道失败")
         return
 
-    # 生成 webrtc_id (模拟前端)
+    # 生成 webrtc_id
     webrtc_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=7))
     logger.info(f"生成webrtc_id: {webrtc_id}")
 
@@ -152,7 +151,6 @@ async def test_rtc_text_message():
     @data_channel.on("open")
     def on_open():
         logger.info("数据通道已打开")
-        # 7. 发送测试消息 (模拟前端发送文字)
         test_message = json.dumps({
             "type": "chat",
             "data": "Hello from test client!"
@@ -168,17 +166,11 @@ async def test_rtc_text_message():
     def on_close():
         logger.info("数据通道已关闭")
 
-    # 8. 创建并设置 Local Description (模拟前端: pc.createOffer() + pc.setLocalDescription())
+    # 7. 创建并设置 Local Description
     logger.info("正在创建offer...")
     try:
         offer = await asyncio.wait_for(pc.createOffer(), timeout=30)
         logger.info("创建offer成功")
-        
-        # 检查 SDP 中是否包含轨道信息
-        if "m=video" in offer.sdp:
-            logger.info("SDP 包含视频轨道")
-        if "m=audio" in offer.sdp:
-            logger.info("SDP 包含音频轨道")
     except Exception as e:
         logger.exception("创建offer失败")
         await pc.close()
@@ -192,7 +184,7 @@ async def test_rtc_text_message():
         await pc.close()
         return
 
-    # 9. 发送 Offer 到服务器 (模拟前端: fetch('/webrtc/offer', ...))
+    # 8. 发送 Offer 到服务器
     logger.info("发送offer到服务器...")
     try:
         offer_data = {
@@ -210,7 +202,6 @@ async def test_rtc_text_message():
             answer = response.json()
             logger.info("收到服务器的answer")
             
-            # 10. 设置远程描述 (模拟前端: pc.setRemoteDescription(answer))
             await asyncio.wait_for(pc.setRemoteDescription(RTCSessionDescription(sdp=answer['sdp'], type=answer['type'])), timeout=30)
             logger.info("设置远程描述成功")
         else:
@@ -222,7 +213,7 @@ async def test_rtc_text_message():
         await pc.close()
         return
 
-    # 11. 等待 ICE 连接建立 (模拟前端等待连接成功)
+    # 9. 等待 ICE 连接建立
     logger.info("等待ICE连接建立（5秒）...")
     try:
         await asyncio.sleep(5)
@@ -232,7 +223,7 @@ async def test_rtc_text_message():
     logger.info(f"ICE连接状态: {pc.iceConnectionState}")
     logger.info(f"Data Channel状态: {data_channel.readyState}")
 
-    # 12. 检查连接状态，如果成功则发送消息
+    # 10. 检查连接状态，如果成功则发送消息
     if data_channel.readyState == "open":
         logger.info("Data Channel 已打开，发送测试消息...")
         test_message = json.dumps({
@@ -244,7 +235,7 @@ async def test_rtc_text_message():
     else:
         logger.warning(f"Data Channel 未打开，当前状态: {data_channel.readyState}")
 
-    # 13. 关闭连接
+    # 11. 关闭连接
     logger.info("关闭连接...")
     try:
         await pc.close()
