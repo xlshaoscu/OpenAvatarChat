@@ -31,14 +31,14 @@ async def test_rtc_text_message():
             rtc_config_data = config.get('rtc_configuration', {})
             logger.info(f"原始RTC配置: {rtc_config_data}")
         else:
-            logger.error(f"获取配置失败: {response.status_code}")
+            logger.exception(f"获取配置失败: {response.status_code}")
             return
     except requests.exceptions.ConnectionError:
-        logger.error(f"无法连接到服务器 {server_url}，请确保服务已启动")
-        logger.error("检查服务是否运行在正确端口")
+        logger.exception(f"无法连接到服务器 {server_url}，请确保服务已启动")
+        logger.exception("检查服务是否运行在正确端口")
         return
     except requests.exceptions.Timeout:
-        logger.error(f"连接服务器超时，请检查网络")
+        logger.exception(f"连接服务器超时，请检查网络")
         return
     except Exception as e:
         logger.exception("连接服务失败")
@@ -86,7 +86,7 @@ async def test_rtc_text_message():
             if response.status_code == 200:
                 logger.debug("发送ICE候选成功")
             else:
-                logger.error(f"发送ICE候选失败: {response.status_code}")
+                logger.exception(f"发送ICE候选失败: {response.status_code}")
         except Exception as e:
             logger.exception("发送ICE候选异常")
 
@@ -120,7 +120,7 @@ async def test_rtc_text_message():
         offer = await asyncio.wait_for(pc.createOffer(), timeout=30)
         logger.info("创建offer成功")
     except asyncio.TimeoutError:
-        logger.error("创建offer超时")
+        logger.exception("创建offer超时")
         await pc.close()
         return
     except Exception as e:
@@ -132,7 +132,7 @@ async def test_rtc_text_message():
         await asyncio.wait_for(pc.setLocalDescription(offer), timeout=30)
         logger.info("设置本地描述成功")
     except asyncio.TimeoutError:
-        logger.error("设置本地描述超时")
+        logger.exception("设置本地描述超时")
         await pc.close()
         return
     except Exception as e:
@@ -162,16 +162,16 @@ async def test_rtc_text_message():
             await asyncio.wait_for(pc.setRemoteDescription(RTCSessionDescription(sdp=answer['sdp'], type=answer['type'])), timeout=30)
             logger.info("设置远程描述成功")
         else:
-            logger.error(f"发送offer失败: {response.status_code}")
-            logger.error(f"响应内容: {response.text}")
+            logger.exception(f"发送offer失败: {response.status_code}")
+            logger.exception(f"响应内容: {response.text}")
             await pc.close()
             return
     except requests.exceptions.Timeout:
-        logger.error("发送offer超时，请检查服务是否正常运行")
+        logger.exception("发送offer超时，请检查服务是否正常运行")
         await pc.close()
         return
     except asyncio.TimeoutError:
-        logger.error("设置远程描述超时")
+        logger.exception("设置远程描述超时")
         await pc.close()
         return
     except Exception as e:
