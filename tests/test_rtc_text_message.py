@@ -27,7 +27,7 @@ class BlackVideoTrack(VideoStreamTrack):
         super().__init__()
         self.kind = "video"
         self._pts = 0
-
+git
     async def recv(self):
         # 生成 640x480 黑色视频帧
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
