@@ -257,7 +257,8 @@ class RtcStream(AsyncAudioVideoStreamHandler):
     async def on_chat_datachannel(self, message: Dict, channel):
         # {"type":"chat",id:"标识属于同一段话", "message":"Hello, world!"}
         # unique_id = uuid.uuid4().hex
-        pass
+        logger.error(f"Receive data {message}")
+        # pass
     def shutdown(self):
         self.quit.set()
         factory = None
