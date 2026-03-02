@@ -279,7 +279,7 @@ class SharedMemoryBufferPool:
         
         if self.audio_buffers[index] is not None:
             self.audio_available.put(index)
-            logger.debug(f"Released audio buffer {index}")
+            #logger.debug(f"Released audio buffer {index}")
             self._maybe_log_buffer_usage(
                 buffer_type='audio',
                 queue=self.audio_available,
@@ -302,7 +302,7 @@ class SharedMemoryBufferPool:
         
         if self.video_buffers[index] is not None:
             self.video_available.put(index)
-            logger.debug(f"Released video buffer {index}")
+            #logger.debug(f"Released video buffer {index}")
             self._maybe_log_buffer_usage(
                 buffer_type='video',
                 queue=self.video_available,
