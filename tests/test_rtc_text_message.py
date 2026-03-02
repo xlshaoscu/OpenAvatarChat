@@ -6,7 +6,7 @@ import random
 import string
 import sys
 
-from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,7 +47,8 @@ async def test_rtc_text_message():
     try:
         rtc_config = RTCConfiguration()
         rtc_config.iceServers = []
-        logger.info("使用空配置的RTCPeerConnection")
+        rtc_config.certificates = []
+        logger.info("使用空配置（无证书）的RTCPeerConnection")
         pc = RTCPeerConnection(rtc_config)
         logger.info("创建RTCPeerConnection成功")
     except Exception as e:
@@ -155,6 +156,9 @@ async def test_rtc_text_message():
         if response.status_code == 200:
             answer = response.json()
             logger.info("收到服务器的answer")
+            logger.info(f"Answer SDP长度: {len(answer.get('sdp', ''))}")
+            logger.info(f"Answer type: {answer.get('type', '')}")
+
             await asyncio.wait_for(pc.setRemoteDescription(RTCSessionDescription(sdp=answer['sdp'], type=answer['type'])), timeout=30)
             logger.info("设置远程描述成功")
         else:
@@ -180,6 +184,9 @@ async def test_rtc_text_message():
         await asyncio.sleep(3)
     except Exception as e:
         logger.exception("等待异常")
+
+    logger.info(f"ICE连接状态: {pc.iceConnectionState}")
+    logger.info(f"Data Channel状态: {data_channel.readyState}")
 
     logger.info("关闭连接...")
     try:
