@@ -2,15 +2,16 @@ import asyncio
 import json
 import logging
 import requests
-import time
 import random
 import string
+import sys
 
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
+    stream=sys.stdout
 )
 logger = logging.getLogger(__name__)
 
@@ -19,10 +20,10 @@ async def test_rtc_text_message():
     logger.info("开始RTC文字消息测试...")
 
     server_url = "https://localhost:8282"
-    timeout = 5
+    timeout = 30
 
     try:
-        logger.info("正在连接服务器...")
+        logger.info(f"正在连接服务器 {server_url}...")
         response = requests.get(f"{server_url}/openavatarchat/initconfig", verify=False, timeout=timeout)
         if response.status_code == 200:
             config = response.json()
@@ -34,9 +35,10 @@ async def test_rtc_text_message():
             return
     except requests.exceptions.ConnectionError:
         logger.error(f"无法连接到服务器 {server_url}，请确保服务已启动")
+        logger.error("检查服务是否运行在正确端口")
         return
     except requests.exceptions.Timeout:
-        logger.error(f"连接服务器超时")
+        logger.error(f"连接服务器超时，请检查网络")
         return
     except Exception as e:
         logger.exception("连接服务失败")
@@ -114,27 +116,27 @@ async def test_rtc_text_message():
 
     logger.info("正在创建offer...")
     try:
-        offer = await asyncio.wait_for(pc.createOffer(), timeout=10)
+        offer = await asyncio.wait_for(pc.createOffer(), timeout=30)
         logger.info("创建offer成功")
     except asyncio.TimeoutError:
         logger.error("创建offer超时")
-        pc.close()
+        await pc.close()
         return
     except Exception as e:
         logger.exception("创建offer失败")
-        pc.close()
+        await pc.close()
         return
 
     try:
-        await asyncio.wait_for(pc.setLocalDescription(offer), timeout=10)
+        await asyncio.wait_for(pc.setLocalDescription(offer), timeout=30)
         logger.info("设置本地描述成功")
     except asyncio.TimeoutError:
         logger.error("设置本地描述超时")
-        pc.close()
+        await pc.close()
         return
     except Exception as e:
         logger.exception("设置本地描述失败")
-        pc.close()
+        await pc.close()
         return
 
     logger.info("发送offer到服务器...")
@@ -153,19 +155,24 @@ async def test_rtc_text_message():
         if response.status_code == 200:
             answer = response.json()
             logger.info("收到服务器的answer")
-            await asyncio.wait_for(pc.setRemoteDescription(RTCSessionDescription(sdp=answer['sdp'], type=answer['type'])), timeout=10)
+            await asyncio.wait_for(pc.setRemoteDescription(RTCSessionDescription(sdp=answer['sdp'], type=answer['type'])), timeout=30)
             logger.info("设置远程描述成功")
         else:
             logger.error(f"发送offer失败: {response.status_code}")
-            pc.close()
+            logger.error(f"响应内容: {response.text}")
+            await pc.close()
             return
+    except requests.exceptions.Timeout:
+        logger.error("发送offer超时，请检查服务是否正常运行")
+        await pc.close()
+        return
     except asyncio.TimeoutError:
         logger.error("设置远程描述超时")
-        pc.close()
+        await pc.close()
         return
     except Exception as e:
         logger.exception("发送offer异常")
-        pc.close()
+        await pc.close()
         return
 
     logger.info("等待ICE连接建立（3秒）...")
@@ -176,7 +183,7 @@ async def test_rtc_text_message():
 
     logger.info("关闭连接...")
     try:
-        pc.close()
+        await pc.close()
         logger.info("连接已关闭")
     except Exception as e:
         logger.exception("关闭连接异常")
