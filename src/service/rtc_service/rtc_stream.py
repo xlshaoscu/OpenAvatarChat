@@ -107,7 +107,7 @@ class RtcStream(AsyncAudioVideoStreamHandler):
         try:
             # if not self.args_set.is_set():
             # await self.wait_for_args()
-
+            logger.error("emit chat data")
             if not self.first_audio_emitted:
                 self.client_session_delegate.clear_data()
                 self.first_audio_emitted = True
@@ -121,6 +121,7 @@ class RtcStream(AsyncAudioVideoStreamHandler):
                     continue
                 sample_num = audio_array.shape[-1]
                 self.emit_counter.add_property("audio_emit", sample_num / self.output_sample_rate)
+                logger.error("emit video data")
                 return self.output_sample_rate, audio_array
         except Exception as e:
             logger.opt(exception=e).error("Error in emit: ")
@@ -153,7 +154,7 @@ class RtcStream(AsyncAudioVideoStreamHandler):
                 frame_data = video_frame_data.data.get_main_data().squeeze()
                 if frame_data is None:
                     continue
-                
+                logger.error("emit frame data")
                 return frame_data
         except Exception as e:
             logger.opt(exception=e).error("Error in video_emit")
