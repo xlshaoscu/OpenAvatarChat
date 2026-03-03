@@ -248,7 +248,7 @@ async def test_rtc_text_message():
         logger.warning(f"Data Channel 未打开，当前状态: {data_channel.readyState}")
 
 
-    time.sleep(10)
+    time.sleep(100)
     # 11. 关闭连接
     logger.info("关闭连接...")
     try:
