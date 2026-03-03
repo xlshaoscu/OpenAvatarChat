@@ -359,6 +359,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
                 output = DataBundle(output_definition)
                 output.set_main_data(out_audio)
                 output.add_meta("avatar_speech_text", text)
+                logger.error(f"Generated text: {text}")
                 output.add_meta("speech_id", speech_id)
                 logger.info(f"Generated audio of size {out_audio.shape[-1]}, sample_rate={sr}")
                 context.submit_data(output)
