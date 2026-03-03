@@ -285,6 +285,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
 
         if audio is not None:
             # prefill audio
+            logger.error(f"Put audio frame")
             if audio is not None:
                 audio = audio.squeeze()
             context.audio_prefill_slice_context.update_start_id(inputs.timestamp[0])
@@ -306,7 +307,8 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
             context.put_video_frame(video)
 
         speech_end = inputs.data.get_meta("human_speech_end", False)
-        if not speech_end:
+        logger.error(f"Put video frame, count={context.video_frame_count}")
+        if not speech_end and context.video_frame_count < 1147:
             logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs}")
             return
 
