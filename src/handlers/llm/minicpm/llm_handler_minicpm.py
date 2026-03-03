@@ -269,12 +269,13 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
         audio = None
         video = None
         # 可以执行到
-        #logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs}")
+        logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs.type}")
         if inputs.type == ChatDataType.CAMERA_VIDEO:
             video = inputs
         elif inputs.type == ChatDataType.HUMAN_AUDIO:
             audio = inputs.data.get_main_data()
         else:
+            logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs.type}")
             return
         logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs}")    
         speech_id = inputs.data.get_meta("speech_id")
