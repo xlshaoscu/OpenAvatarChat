@@ -276,6 +276,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
             audio = inputs.data.get_main_data()
         else:
             return
+        logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs}")    
         speech_id = inputs.data.get_meta("speech_id")
         if speech_id is None:
             speech_id = context.session_id
@@ -303,6 +304,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
 
         speech_end = inputs.data.get_meta("human_speech_end", False)
         if not speech_end:
+            logger.error(f"Not speech end, continue")
             return
 
         # prefill remainder audio in slice context
