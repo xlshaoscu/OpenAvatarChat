@@ -1,6 +1,8 @@
 import asyncio
 import json
 import logging
+import time
+
 import requests
 import random
 import string
@@ -245,6 +247,8 @@ async def test_rtc_text_message():
     else:
         logger.warning(f"Data Channel 未打开，当前状态: {data_channel.readyState}")
 
+
+    time.sleep(10)
     # 11. 关闭连接
     logger.info("关闭连接...")
     try:
