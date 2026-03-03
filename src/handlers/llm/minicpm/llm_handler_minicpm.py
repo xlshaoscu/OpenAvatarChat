@@ -367,6 +367,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
         end_output.set_main_data(np.zeros(shape=(1, 50), dtype=np.float32))
         end_output.add_meta("avatar_speech_end", True)
         end_output.add_meta("speech_id", speech_id)
+        logger.error(f"Generated text: {result_text}")
         context.generating = False
         context.submit_data(end_output)
         # yield end_output
