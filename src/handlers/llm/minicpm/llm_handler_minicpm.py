@@ -268,6 +268,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
         context = cast(MiniCPMContext, context)
         audio = None
         video = None
+        logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs}")
         if inputs.type == ChatDataType.CAMERA_VIDEO:
             video = inputs
         elif inputs.type == ChatDataType.HUMAN_AUDIO:
