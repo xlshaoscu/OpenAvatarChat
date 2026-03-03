@@ -65,13 +65,16 @@ class MiniCPMContext(HandlerContext):
 
         self.video_frame_cache = queue.Queue(maxsize=50)
         self.video_frame_head_cache: Optional[ChatData] = None
+        self.video_frame_count = 0
 
     def put_video_frame(self, frame):
+        logger.error(f"Put video frame, count={self.video_frame_count}")
         if self.config is None or not self.config.enable_video_input:
             return
         if self.video_frame_cache.full():
             self.video_frame_head_cache = self.video_frame_cache.get_nowait()
         self.video_frame_cache.put_nowait(frame)
+        self.video_frame_count += 1
 
     def fetch_video_frames(self, start_time: int, end_time: int):
         result = []
@@ -268,7 +271,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
         context = cast(MiniCPMContext, context)
         audio = None
         video = None
-        logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs}")
+        logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs.type}")
         if inputs.type == ChatDataType.CAMERA_VIDEO:
             video = inputs
         elif inputs.type == ChatDataType.HUMAN_AUDIO:
@@ -299,6 +302,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
                     context.prefilling = True
 
         if video is not None:
+            logger.error(f"Put video frame")
             context.put_video_frame(video)
 
         speech_end = inputs.data.get_meta("human_speech_end", False)
