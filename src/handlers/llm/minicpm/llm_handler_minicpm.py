@@ -308,7 +308,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
 
         speech_end = inputs.data.get_meta("human_speech_end", False)
         logger.error(f"Put video frame, count={context.video_frame_count}")
-        if not speech_end and context.video_frame_count < 1147:
+        if not speech_end and context.video_frame_count < 20:
             logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs}")
             return
 
