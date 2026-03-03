@@ -1,17 +1,16 @@
 import asyncio
 import json
 import logging
-import requests
+import os
 import random
 import string
 import sys
+from collections import deque
+
 import numpy as np
-import av
-from fractions import Fraction
+import requests
 
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration
-from aiortc.mediastreams import VideoStreamTrack, AudioStreamTrack
-from av import VideoFrame, AudioFrame
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,52 +20,126 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class BlackVideoTrack(VideoStreamTrack):
-    """黑色视频轨道 - 模拟摄像头输入"""
-    def __init__(self):
-        super().__init__()
-        self.kind = "video"
-        self._pts = 0
-        self._sample_rate = 48000
-        self._samples_per_frame = 960  # 20ms
-
-    async def recv(self):
-        # 生成 640x480 黑色视频帧
-        frame = np.zeros((480, 640, 3), dtype=np.uint8)
-        video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
+class VideoSaver:
+    """视频保存器"""
+    def __init__(self, output_dir="output_videos"):
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+        self.frame_count = 0
+        self.frames = deque(maxlen=600)  # 最多保存20秒 (30fps)
+        self.fps = 30
         
-        video_frame.pts = self._pts
-        video_frame.time_base = Fraction(1, 30)  # 30fps
-        self._pts += 1
+    def save_frame(self, frame):
+        """接收视频帧并保存"""
+        if hasattr(frame, 'to_ndarray'):
+            frame_array = frame.to_ndarray()
+        elif isinstance(frame, np.ndarray):
+            frame_array = frame
+        else:
+            return
+            
+        self.frames.append(frame_array)
+        self.frame_count += 1
         
-        return video_frame
+        if self.frame_count % 30 == 0:
+            logger.info(f"已保存 {self.frame_count} 帧")
+    
+    def save_video(self, filename=None):
+        """将保存的帧保存为视频文件"""
+        if len(self.frames) == 0:
+            logger.warning("没有视频帧可保存")
+            return
+            
+        if filename is None:
+            filename = os.path.join(self.output_dir, f"video_{random.randint(1000,9999)}.mp4")
+        
+        try:
+            import cv2
+            
+            first_frame = self.frames[0]
+            if len(first_frame.shape) == 3:
+                height, width = first_frame.shape[:2]
+            else:
+                height, width = 480, 640
+            
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(filename, fourcc, self.fps, (width, height))
+            
+            for frame in self.frames:
+                if len(frame.shape) == 3 and frame.shape[2] == 3:
+                    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                else:
+                    frame_bgr = frame
+                out.write(frame_bgr)
+            
+            out.release()
+            logger.info(f"视频已保存到: {filename}")
+            logger.info(f"总帧数: {len(self.frames)}, 时长: {len(self.frames)/self.fps:.2f}秒")
+            
+        except Exception as e:
+            logger.exception(f"保存视频失败: {e}")
 
 
-class SilentAudioTrack(AudioStreamTrack):
-    """静音音频轨道 - 模拟麦克风输入"""
-    def __init__(self):
-        super().__init__()
-        self.kind = "audio"
-        self._pts = 0
-        self._sample_rate = 48000
-        self._samples_per_frame = 960  # 20ms
-
-    async def recv(self):
-        # 生成静音数据：形状 (960,) 的 int16 数组（单声道 packed）
-        samples = np.zeros((1, self._samples_per_frame), dtype=np.int16)
-        # 或者使用浮点格式 samples = np.zeros(self._samples_per_frame, dtype=np.float32)
-
-        audio_frame = av.AudioFrame.from_ndarray(
-            samples,
-            format="s16",  # 如果使用浮点，改为 "flt"
-            layout="mono"
-        )
-        audio_frame.sample_rate = self._sample_rate  # 关键：必须设置！
-        audio_frame.pts = self._pts
-        audio_frame.time_base = Fraction(1, self._sample_rate)
-
-        self._pts += self._samples_per_frame
-        return audio_frame
+class AudioSaver:
+    """音频保存器"""
+    def __init__(self, output_dir="output_videos"):
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+        self.audio_data = []
+        self.sample_rate = 24000
+        self.channels = 1
+        
+    def save_frame(self, frame):
+        """接收音频帧并保存"""
+        try:
+            if hasattr(frame, 'to_ndarray'):
+                audio_array = frame.to_ndarray()
+            elif isinstance(frame, np.ndarray):
+                audio_array = frame
+            else:
+                return
+            
+            if audio_array is not None:
+                self.audio_data.append(audio_array)
+                logger.debug(f"已保存音频帧, 形状: {audio_array.shape}")
+        except Exception as e:
+            logger.exception(f"保存音频帧失败: {e}")
+    
+    def save_audio(self, filename=None):
+        """将保存的音频保存为 WAV 文件"""
+        if len(self.audio_data) == 0:
+            logger.warning("没有音频数据可保存")
+            return
+            
+        try:
+            import wave
+            
+            if filename is None:
+                filename = os.path.join(self.output_dir, f"audio_{random.randint(1000,9999)}.wav")
+            
+            # 合并所有音频帧
+            audio_combined = np.concatenate(self.audio_data, axis=-1)
+            
+            # 确保是单声道
+            if len(audio_combined.shape) > 1:
+                audio_combined = audio_combined.mean(axis=0)
+            
+            # 转换为 16-bit PCM
+            audio_int16 = (audio_combined * 32767).astype(np.int16)
+            
+            # 保存为 WAV
+            with wave.open(filename, 'w') as wav_file:
+                wav_file.setnchannels(self.channels)
+                wav_file.setsampwidth(2)  # 16-bit
+                wav_file.setframerate(self.sample_rate)
+                wav_file.writeframes(audio_int16.tobytes())
+            
+            duration = len(audio_int16) / self.sample_rate
+            logger.info(f"音频已保存到: {filename}")
+            logger.info(f"音频时长: {duration:.2f}秒")
+            
+        except Exception as e:
+            logger.exception(f"保存音频失败: {e}")
 
 
 async def test_rtc_text_message():
@@ -75,6 +148,10 @@ async def test_rtc_text_message():
 
     server_url = "https://localhost:8282"
     timeout = 30
+    
+    # 创建音视频保存器
+    video_saver = VideoSaver("output_videos")
+    audio_saver = AudioSaver("output_videos")
 
     # 1. 获取配置
     try:
@@ -100,20 +177,7 @@ async def test_rtc_text_message():
         logger.exception("创建RTCPeerConnection失败")
         return
 
-    # 3. 创建本地音视频轨道
-    video_track = BlackVideoTrack()
-    audio_track = SilentAudioTrack()
-
-    # 4. 添加轨道到 RTCPeerConnection
-    try:
-        video_sender = pc.addTrack(video_track)
-        audio_sender = pc.addTrack(audio_track)
-        logger.info(f"添加音视频轨道成功 - video sender: {video_sender}, audio sender: {audio_sender}")
-    except Exception as e:
-        logger.exception("添加音视频轨道失败")
-        return
-
-    # 5. 创建 Data Channel
+    # 3. 创建 Data Channel
     try:
         data_channel = pc.createDataChannel('text')
         logger.info("创建数据通道成功")
@@ -125,7 +189,7 @@ async def test_rtc_text_message():
     webrtc_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=7))
     logger.info(f"生成webrtc_id: {webrtc_id}")
 
-    # 6. 注册事件回调
+    # 4. 注册事件回调
     def send_ice_candidate(candidate):
         try:
             candidate_data = {
@@ -156,7 +220,34 @@ async def test_rtc_text_message():
 
     @pc.on("track")
     def on_track(track):
+        """接收远程轨道（服务端发送的视频/音频）"""
         logger.info(f"收到远程轨道: {track.kind}")
+        
+        if track.kind == "video":
+            # 保存视频帧
+            async def save_video_frames():
+                logger.info("开始接收视频帧...")
+                while True:
+                    try:
+                        frame = await track.recv()
+                        video_saver.save_frame(frame)
+                    except Exception as e:
+                        logger.info(f"视频接收结束: {e}")
+                        break
+            asyncio.create_task(save_video_frames())
+            
+        elif track.kind == "audio":
+            # 保存音频帧
+            async def save_audio_frames():
+                logger.info("开始接收音频帧...")
+                while True:
+                    try:
+                        frame = await track.recv()
+                        audio_saver.save_frame(frame)
+                    except Exception as e:
+                        logger.info(f"音频接收结束: {e}")
+                        break
+            asyncio.create_task(save_audio_frames())
 
     @data_channel.on("open")
     def on_open():
@@ -176,7 +267,7 @@ async def test_rtc_text_message():
     def on_close():
         logger.info("数据通道已关闭")
 
-    # 7. 创建并设置 Local Description
+    # 5. 创建并设置 Local Description
     logger.info("正在创建offer...")
     try:
         offer = await asyncio.wait_for(pc.createOffer(), timeout=30)
@@ -194,7 +285,7 @@ async def test_rtc_text_message():
         await pc.close()
         return
 
-    # 8. 发送 Offer 到服务器
+    # 6. 发送 Offer 到服务器
     logger.info("发送offer到服务器...")
     try:
         offer_data = {
@@ -223,17 +314,17 @@ async def test_rtc_text_message():
         await pc.close()
         return
 
-    # 9. 等待 ICE 连接建立
-    logger.info("等待ICE连接建立（5秒）...")
+    # 7. 等待音视频接收
+    logger.info("等待接收服务端音视频（15秒）...")
     try:
-        await asyncio.sleep(5)
+        await asyncio.sleep(15)
     except Exception as e:
         logger.exception("等待异常")
 
     logger.info(f"ICE连接状态: {pc.iceConnectionState}")
     logger.info(f"Data Channel状态: {data_channel.readyState}")
 
-    # 10. 检查连接状态，如果成功则发送消息
+    # 8. 检查连接状态，如果成功则发送消息
     if data_channel.readyState == "open":
         logger.info("Data Channel 已打开，发送测试消息...")
         test_message = json.dumps({
@@ -241,11 +332,21 @@ async def test_rtc_text_message():
             "data": "Hello from test client!"
         })
         data_channel.send(test_message)
-        await asyncio.sleep(2)
+        
+        # 再等待一段时间接收响应
+        logger.info("等待接收响应（10秒）...")
+        await asyncio.sleep(10)
     else:
         logger.warning(f"Data Channel 未打开，当前状态: {data_channel.readyState}")
 
-    # 11. 关闭连接
+    # 9. 保存音视频
+    logger.info("正在保存视频...")
+    video_saver.save_video()
+    
+    logger.info("正在保存音频...")
+    audio_saver.save_audio()
+
+    # 10. 关闭连接
     logger.info("关闭连接...")
     try:
         await pc.close()
