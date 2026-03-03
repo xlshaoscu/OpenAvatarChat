@@ -268,7 +268,8 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
         context = cast(MiniCPMContext, context)
         audio = None
         video = None
-        logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs}")
+        # 可以执行到
+        #logger.error(f"Handling session={str(context.local_session_id)}, inputs={inputs}")
         if inputs.type == ChatDataType.CAMERA_VIDEO:
             video = inputs
         elif inputs.type == ChatDataType.HUMAN_AUDIO:
@@ -305,6 +306,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
             return
 
         # prefill remainder audio in slice context
+        logger.error(f"Prefilling remainder audio with segment start id {context.audio_prefill_slice_context.get_next_slice_start_index()}")
         end_segment_start_id = context.audio_prefill_slice_context.get_next_slice_start_index()
         remainder_audio = context.audio_prefill_slice_context.flush()
         if remainder_audio is not None:
@@ -320,7 +322,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
 
         context.prefilling = False
 
-        logger.info(f"Start s2s inference for speech {speech_id}")
+        logger.error(f"Start s2s inference for speech {speech_id}")
         t_start = time.monotonic()
         is_first_result = True
         result_audio = []
@@ -352,7 +354,7 @@ class HandlerS2SMiniCPM(HandlerBase, ABC):
                 output.set_main_data(out_audio)
                 output.add_meta("avatar_speech_text", text)
                 output.add_meta("speech_id", speech_id)
-                logger.info(f"Generated audio of size {out_audio.shape[-1]}, sample_rate={sr}")
+                logger.error(f"Generated audio of size {out_audio.shape[-1]}, sample_rate={sr}")
                 context.submit_data(output)
                 # yield output
         end_output = DataBundle(output_definition)
