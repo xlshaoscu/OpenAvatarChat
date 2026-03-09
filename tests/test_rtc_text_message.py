@@ -178,7 +178,8 @@ async def test_rtc_text_message():
                     try:
                         frame = await track.recv()
                         # 处理音频帧
-                        logger.info(f"收到音频帧: samples={frame.samples}, channels={frame.channels}")
+                        #logger.info(f"收到音频帧: samples={frame.samples}, channels={frame.channels}")
+                        logger.info(f"收到音频帧: samples={frame.samples}")
                         # 可以在这里保存音频数据或进行其他处理
                     except Exception as e:
                         logger.exception(f"音频轨道错误: {e}")
