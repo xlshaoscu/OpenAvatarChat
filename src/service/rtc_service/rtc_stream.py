@@ -121,7 +121,6 @@ class RtcStream(AsyncAudioVideoStreamHandler):
                     continue
                 sample_num = audio_array.shape[-1]
                 self.emit_counter.add_property("audio_emit", sample_num / self.output_sample_rate)
-                logger.error(f"self.output_sample_rate={self.output_sample_rate}, audio_array={audio_array}")
                 return self.output_sample_rate, audio_array
         except Exception as e:
             logger.opt(exception=e).error("Error in emit: ")
@@ -129,6 +128,7 @@ class RtcStream(AsyncAudioVideoStreamHandler):
 
     async def video_emit(self) -> VideoEmitType:
         try:
+            logger.error("video_emit")
             if not self.first_audio_emitted:
                 await asyncio.sleep(0.1)
             
