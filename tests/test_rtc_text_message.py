@@ -170,20 +170,66 @@ async def test_rtc_text_message():
                         logger.info(f"收到视频帧: width={frame.width}, height={frame.height}")
                         # 可以在这里保存视频帧或进行其他处理
                     except Exception as e:
-                        logger.exception(f"视频轨道错误: {e}")
+                        logger.error(f"视频轨道错误: {e}")
                         break
             elif track.kind == "audio":
                 logger.info(f"开始接收音频轨道: {track.id}")
-                while True:
-                    try:
+                # 初始化音频保存
+                import wave
+                import os
+                import numpy as np
+                
+                # 创建保存目录
+                output_dir = "audio_output"
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                
+                # 音频文件路径
+                audio_file = os.path.join(output_dir, f"received_audio_{int(time.time())}.wav")
+                
+                # 音频参数
+                sample_rate = 48000  # 假设采样率为48kHz
+                channels = 1  # 单声道
+                sample_width = 2  # 16位
+                
+                # 打开WAV文件
+                wf = wave.open(audio_file, 'wb')
+                wf.setnchannels(channels)
+                wf.setsampwidth(sample_width)
+                wf.setframerate(sample_rate)
+                
+                logger.info(f"开始保存音频到: {audio_file}")
+                
+                try:
+                    while True:
                         frame = await track.recv()
                         # 处理音频帧
-                        #logger.info(f"收到音频帧: samples={frame.samples}, channels={frame.channels}")
                         logger.info(f"收到音频帧: samples={frame.samples}")
-                        # 可以在这里保存音频数据或进行其他处理
-                    except Exception as e:
-                        logger.exception(f"音频轨道错误: {e}")
-                        break
+                        
+                        # 将音频帧转换为numpy数组
+                        samples = frame.to_ndarray()
+                        
+                        # 确保数据格式正确
+                        if samples.dtype == np.float32:
+                            # 转换为16位整数
+                            samples = np.int16(samples * 32767)
+                        elif samples.dtype != np.int16:
+                            # 其他格式转换为16位整数
+                            samples = np.int16(samples)
+                        
+                        # 确保是一维数组
+                        if samples.ndim > 1:
+                            samples = samples.flatten()
+                        
+                        # 写入WAV文件
+                        wf.writeframes(samples.tobytes())
+                        
+                except Exception as e:
+                    logger.error(f"音频轨道错误: {e}")
+                finally:
+                    # 关闭WAV文件
+                    wf.close()
+                    logger.info(f"音频保存完成: {audio_file}")
         
         # 启动异步任务处理轨道
         asyncio.create_task(play_track())
