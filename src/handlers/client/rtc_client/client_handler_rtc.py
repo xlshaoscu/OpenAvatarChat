@@ -285,7 +285,6 @@ class RtcClientSessionDelegate(ClientSessionDelegate):
             return
         data_bundle = DataBundle(definition)
         if modality == EngineChannelType.AUDIO:
-            logger.error("put data EngineChannelType.AUDIO")
             data_bundle.set_main_data(data.squeeze()[np.newaxis, ...])
         elif modality == EngineChannelType.VIDEO:
             logger.error("put data EngineChannelType.VIDEO")
