@@ -128,7 +128,8 @@ class RtcStream(AsyncAudioVideoStreamHandler):
 
     async def video_emit(self) -> VideoEmitType:
         try:
-            logger.error("video_emit")
+            import traceback
+            logger.error(f"video_emit 被调用! 调用堆栈: {traceback.format_stack()}")
             if not self.first_audio_emitted:
                 await asyncio.sleep(0.1)
             
