@@ -162,16 +162,60 @@ async def test_rtc_text_message():
         
         async def play_track():
             if track.kind == "video":
-                logger.info(f"开始接收视频轨道: {track.id}")
+                logger.error(f"开始接收视频轨道: {track.id}")
+                
+                # 初始化视频保存
+                import cv2
+                import numpy as np
+                
+                # 创建保存目录
+                output_dir = "video_output"
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                
+                # 视频文件路径
+                video_file = os.path.join(output_dir, f"received_video_{int(time.time())}.mp4")
+                
+                # 视频参数（稍后从第一帧获取）
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                video_writer = None
+                frame_count = 0
+                
+                logger.error(f"开始保存视频到: {video_file}")
+                
                 while True:
                     try:
                         frame = await track.recv()
                         # 处理视频帧
-                        logger.info(f"收到视频帧: width={frame.width}, height={frame.height}")
-                        # 可以在这里保存视频帧或进行其他处理
+                        logger.error(f"收到视频帧: width={frame.width}, height={frame.height}")
+                        
+                        # 转换为numpy数组
+                        video_frame = frame.to_ndarray()
+                        
+                        # BGR转RGB（如果需要）
+                        if video_frame.shape[2] == 3:
+                            video_frame = cv2.cvtColor(video_frame, cv2.COLOR_RGB2BGR)
+                        
+                        # 初始化VideoWriter（第一帧时）
+                        if video_writer is None:
+                            video_writer = cv2.VideoWriter(video_file, fourcc, 30, (frame.width, frame.height))
+                            logger.info(f"视频写入器初始化: {frame.width}x{frame.height}")
+                        
+                        # 写入视频帧
+                        video_writer.write(video_frame)
+                        frame_count += 1
+                        
+                        if frame_count % 30 == 0:
+                            logger.info(f"已保存 {frame_count} 帧视频")
+                            
                     except Exception as e:
                         logger.error(f"视频轨道错误: {e}")
                         break
+                
+                # 关闭视频写入器
+                if video_writer is not None:
+                    video_writer.release()
+                logger.info(f"视频保存完成: {video_file}, 共 {frame_count} 帧")
             elif track.kind == "audio":
                 logger.info(f"开始接收音频轨道: {track.id}")
                 
@@ -202,7 +246,7 @@ async def test_rtc_text_message():
                     while True:
                         frame = await track.recv()
                         # 处理音频帧
-                        logger.info(f"收到音频帧: samples={frame.samples}, samples.dtype={frame.to_ndarray()}")
+                        # logger.info(f"收到音频帧: samples={frame.samples}, samples.dtype={frame.to_ndarray()}")
                         
                         # 将音频帧转换为numpy数组
                         samples = frame.to_ndarray()
