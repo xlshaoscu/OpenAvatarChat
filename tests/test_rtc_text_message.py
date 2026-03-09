@@ -159,6 +159,33 @@ async def test_rtc_text_message():
     @pc.on("track")
     def on_track(track):
         logger.info(f"收到远程轨道: {track.kind}")
+        
+        async def play_track():
+            if track.kind == "video":
+                logger.info(f"开始接收视频轨道: {track.id}")
+                while True:
+                    try:
+                        frame = await track.recv()
+                        # 处理视频帧
+                        logger.info(f"收到视频帧: width={frame.width}, height={frame.height}")
+                        # 可以在这里保存视频帧或进行其他处理
+                    except Exception as e:
+                        logger.error(f"视频轨道错误: {e}")
+                        break
+            elif track.kind == "audio":
+                logger.info(f"开始接收音频轨道: {track.id}")
+                while True:
+                    try:
+                        frame = await track.recv()
+                        # 处理音频帧
+                        logger.info(f"收到音频帧: samples={frame.samples}, channels={frame.channels}")
+                        # 可以在这里保存音频数据或进行其他处理
+                    except Exception as e:
+                        logger.error(f"音频轨道错误: {e}")
+                        break
+        
+        # 启动异步任务处理轨道
+        asyncio.create_task(play_track())
 
     @data_channel.on("open")
     def on_open():
