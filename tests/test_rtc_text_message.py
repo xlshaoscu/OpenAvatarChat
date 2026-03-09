@@ -188,7 +188,7 @@ async def test_rtc_text_message():
                 audio_file = os.path.join(output_dir, f"received_audio_{int(time.time())}.wav")
                 
                 # 音频参数
-                sample_rate = 48000  # 假设采样率为48kHz
+                sample_rate = 24000  # 假设采样率为48kHz
                 channels = 1  # 单声道
                 sample_width = 2  # 16位
                 
@@ -204,7 +204,7 @@ async def test_rtc_text_message():
                     while True:
                         frame = await track.recv()
                         # 处理音频帧
-                        logger.info(f"收到音频帧: samples={frame.samples}")
+                        logger.info(f"收到音频帧: samples={frame.samples}, samples.dtype={frame.to_ndarray().dtype}")
                         
                         # 将音频帧转换为numpy数组
                         samples = frame.to_ndarray()
