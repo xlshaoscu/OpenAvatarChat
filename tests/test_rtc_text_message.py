@@ -173,9 +173,9 @@ async def test_rtc_text_message():
                         logger.error(f"视频轨道错误: {e}")
                         break
             elif track.kind == "audio":
-                logger.info(f"开始接收音频轨道: {track.id} {track.sampleRate}")
-                # 初始化音频保存
-                import wave
+                logger.info(f"开始接收音频轨道: {track.id}")
+                
+                # 初始化PCM保存
                 import os
                 import numpy as np
                 
@@ -184,27 +184,24 @@ async def test_rtc_text_message():
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir)
                 
-                # 音频文件路径
-                audio_file = os.path.join(output_dir, f"received_audio_{int(time.time())}.wav")
+                # PCM文件路径
+                pcm_file = os.path.join(output_dir, f"received_audio_{int(time.time())}.pcm")
                 
-                # 音频参数
-                sample_rate = 24000  # 假设采样率为48kHz
+                # 音频参数（需要记录这些参数用于后续播放）
+                sample_rate = 24000  # 采样率
                 channels = 1  # 单声道
                 sample_width = 2  # 16位
                 
-                # 打开WAV文件
-                wf = wave.open(audio_file, 'wb')
-                wf.setnchannels(channels)
-                wf.setsampwidth(sample_width)
-                wf.setframerate(sample_rate)
+                logger.info(f"开始保存PCM音频到: {pcm_file}")
+                logger.info(f"PCM参数: 采样率={sample_rate}, 声道={channels}, 位深度={sample_width*8}")
                 
-                logger.info(f"开始保存音频到: {audio_file}")
+                # 打开PCM文件（二进制写入模式）
+                pcm_file_handle = open(pcm_file, 'wb')
                 
                 try:
                     while True:
                         frame = await track.recv()
                         # 处理音频帧
-                        logger.info(f"收到音频帧: samples={frame.samples}, samples.dtype={frame.to_ndarray().dtype}")
                         logger.info(f"收到音频帧: samples={frame.samples}, samples.dtype={frame.to_ndarray()}")
                         
                         # 将音频帧转换为numpy数组
@@ -212,6 +209,8 @@ async def test_rtc_text_message():
                         
                         # 确保数据格式正确
                         if samples.dtype == np.float32:
+                            # 限制数据范围在[-1, 1]
+                            samples = np.clip(samples, -1, 1)
                             # 转换为16位整数
                             samples = np.int16(samples * 32767)
                         elif samples.dtype != np.int16:
@@ -222,15 +221,15 @@ async def test_rtc_text_message():
                         if samples.ndim > 1:
                             samples = samples.flatten()
                         
-                        # 写入WAV文件
-                        wf.writeframes(samples.tobytes())
+                        # 写入PCM文件（直接写入原始数据）
+                        pcm_file_handle.write(samples.tobytes())
                         
                 except Exception as e:
                     logger.error(f"音频轨道错误: {e}")
                 finally:
-                    # 关闭WAV文件
-                    wf.close()
-                    logger.info(f"音频保存完成: {audio_file}")
+                    # 关闭PCM文件
+                    pcm_file_handle.close()
+                    logger.info(f"PCM音频保存完成: {pcm_file}")
         
         # 启动异步任务处理轨道
         asyncio.create_task(play_track())
