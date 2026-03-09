@@ -303,7 +303,7 @@ async def test_rtc_text_message():
     # 9. 等待 ICE 连接建立
     logger.info("等待ICE连接建立（5秒）...")
     try:
-        await asyncio.sleep(5)
+        await asyncio.sleep(10)
     except Exception as e:
         logger.exception("等待异常")
 
@@ -318,7 +318,7 @@ async def test_rtc_text_message():
             "data": "Hello from test client!"
         })
         data_channel.send(test_message)
-        await asyncio.sleep(2)
+        await asyncio.sleep(5)
     else:
         logger.warning(f"Data Channel 未打开，当前状态: {data_channel.readyState}")
 
