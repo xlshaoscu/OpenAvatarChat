@@ -302,6 +302,17 @@ async def test_rtc_text_message():
     try:
         offer = await asyncio.wait_for(pc.createOffer(), timeout=30)
         logger.info("创建offer成功")
+        
+        # 打印 SDP 内容，检查是否包含视频轨道
+        logger.info(f"=== SDP Offer 内容 ===")
+        logger.info(f"Offer SDP:\n{offer.sdp}")
+        
+        # 检查是否包含视频
+        if "video" in offer.sdp.lower():
+            logger.info("SDP 中包含视频轨道")
+        else:
+            logger.warning("SDP 中不包含视频轨道")
+        
     except Exception as e:
         logger.exception("创建offer失败")
         await pc.close()
