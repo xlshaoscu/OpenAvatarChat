@@ -170,7 +170,7 @@ async def test_rtc_text_message():
                         logger.info(f"收到视频帧: width={frame.width}, height={frame.height}")
                         # 可以在这里保存视频帧或进行其他处理
                     except Exception as e:
-                        logger.error(f"视频轨道错误: {e}")
+                        logger.exception(f"视频轨道错误: {e}")
                         break
             elif track.kind == "audio":
                 logger.info(f"开始接收音频轨道: {track.id}")
@@ -181,7 +181,7 @@ async def test_rtc_text_message():
                         logger.info(f"收到音频帧: samples={frame.samples}, channels={frame.channels}")
                         # 可以在这里保存音频数据或进行其他处理
                     except Exception as e:
-                        logger.error(f"音频轨道错误: {e}")
+                        logger.exception(f"音频轨道错误: {e}")
                         break
         
         # 启动异步任务处理轨道
