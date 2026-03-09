@@ -205,6 +205,7 @@ async def test_rtc_text_message():
                         frame = await track.recv()
                         # 处理音频帧
                         logger.info(f"收到音频帧: samples={frame.samples}, samples.dtype={frame.to_ndarray().dtype}")
+                        logger.info(f"收到音频帧: samples={frame.samples}, samples.dtype={frame.to_ndarray()}")
                         
                         # 将音频帧转换为numpy数组
                         samples = frame.to_ndarray()
