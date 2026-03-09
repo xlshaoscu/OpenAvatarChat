@@ -130,6 +130,7 @@ class RtcStream(AsyncAudioVideoStreamHandler):
         try:
             import traceback
             logger.error(f"video_emit 被调用! 调用堆栈: {traceback.format_stack()}")
+            logger.error(f"video_emit: quit.is_set() = {self.quit.is_set()}")
             if not self.first_audio_emitted:
                 await asyncio.sleep(0.1)
             
@@ -145,18 +146,24 @@ class RtcStream(AsyncAudioVideoStreamHandler):
                 video_frame_data: ChatData = await self.client_session_delegate.get_data(EngineChannelType.VIDEO)
                 get_data_wait_time = time.perf_counter() - get_data_start
                 
+                logger.error(f"video_emit loop: video_frame_data = {video_frame_data}")
+                
                 # Log slow data retrieval
                 if get_data_wait_time > 0.05:
                     logger.debug(f"[{self.session_id}] Slow video data retrieval: {get_data_wait_time:.3f}s")
                 
                 if video_frame_data is None or video_frame_data.data is None:
+                    logger.error("video_emit: 无视频数据，继续等待...")
                     continue
                 
                 frame_data = video_frame_data.data.get_main_data().squeeze()
                 if frame_data is None:
+                    logger.error("video_emit: frame_data 为空，继续等待...")
                     continue
-                logger.error("emit frame data")
+                logger.error(f"emit frame data: shape = {frame_data.shape}")
                 return frame_data
+            
+            logger.error(f"video_emit: 循环退出, quit.is_set() = {self.quit.is_set()}")
         except Exception as e:
             logger.opt(exception=e).error("Error in video_emit")
             raise
