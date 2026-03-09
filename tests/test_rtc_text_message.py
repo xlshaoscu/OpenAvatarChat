@@ -173,7 +173,7 @@ async def test_rtc_text_message():
                         logger.error(f"视频轨道错误: {e}")
                         break
             elif track.kind == "audio":
-                logger.info(f"开始接收音频轨道: {track.id} {track.sample_rate}")
+                logger.info(f"开始接收音频轨道: {track.id} {track.sampleRate}")
                 # 初始化音频保存
                 import wave
                 import os
