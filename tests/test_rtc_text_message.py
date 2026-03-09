@@ -167,6 +167,7 @@ async def test_rtc_text_message():
                 # 初始化视频保存
                 import cv2
                 import numpy as np
+                import os
                 
                 # 创建保存目录
                 output_dir = "video_output"
