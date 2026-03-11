@@ -188,14 +188,35 @@ async def test_rtc_text_message():
                     try:
                         frame = await track.recv()
                         # 处理视频帧
-                        logger.error(f"收到视频帧: width={frame.width}, height={frame.height}")
+                        logger.error(f"收到视频帧: width={frame.width}, height={frame.height}, format={frame.format}")
                         
                         # 转换为numpy数组
                         video_frame = frame.to_ndarray()
+                        logger.error(f"视频帧shape: {video_frame.shape}, dtype: {video_frame.dtype}")
                         
-                        # BGR转RGB（如果需要）
-                        if video_frame.shape[2] == 3:
-                            video_frame = cv2.cvtColor(video_frame, cv2.COLOR_RGB2BGR)
+                        # 安全检查维度
+                        if video_frame.ndim < 2:
+                            logger.error(f"视频帧维度不足: {video_frame.shape}, 跳过")
+                            continue
+                        
+                        # 根据维度处理
+                        ndim = video_frame.ndim
+                        if ndim == 2:
+                            # 灰度图，转换为BGR
+                            video_frame = cv2.cvtColor(video_frame, cv2.COLOR_GRAY2BGR)
+                        elif ndim >= 3:
+                            last_dim = video_frame.shape[-1]
+                            if last_dim == 3:
+                                # BGR转RGB
+                                video_frame = cv2.cvtColor(video_frame, cv2.COLOR_RGB2BGR)
+                            elif last_dim == 1:
+                                # 单通道，转换为BGR
+                                video_frame = cv2.cvtColor(video_frame.squeeze(), cv2.COLOR_GRAY2BGR)
+                            else:
+                                logger.error(f"未知的通道数: {last_dim}")
+                                continue
+                        
+                        logger.error(f"处理后视频帧shape: {video_frame.shape}")
                         
                         # 初始化VideoWriter（第一帧时）
                         if video_writer is None:
