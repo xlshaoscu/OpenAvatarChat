@@ -210,7 +210,7 @@ async def test_rtc_text_message():
                             logger.info(f"已保存 {frame_count} 帧视频")
                             
                     except Exception as e:
-                        logger.error(f"视频轨道错误: {e}")
+                        logger.exception(f"视频轨道错误: {e}")
                         break
                 
                 # 关闭视频写入器
