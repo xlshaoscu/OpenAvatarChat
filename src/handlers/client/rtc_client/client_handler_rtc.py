@@ -82,6 +82,7 @@ def _configure_h264_hardware_encoding():
         fallback_attempted = False
         data_to_send = b""
 
+        encoder_to_use = 'libx264' # 先尝试使用软件编码器
         while True:
             if self.codec is None:
                 # Try to create encoder, fallback to software encoder if hardware fails
