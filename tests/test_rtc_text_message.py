@@ -193,18 +193,30 @@ async def test_rtc_text_message():
                         # 转换为numpy数组
                         video_frame = frame.to_ndarray()
                         logger.error(f"视频帧shape: {video_frame.shape}, dtype: {video_frame.dtype}")
-
+                        
                         # 安全检查维度
                         if video_frame.ndim < 2:
                             logger.error(f"视频帧维度不足: {video_frame.shape}, 跳过")
                             continue
-
-                        # 根据维度处理
-                        ndim = video_frame.ndim
-                        if ndim == 2:
+                        
+                        # 根据格式处理
+                        video_format = str(frame.format)
+                        logger.error(f"视频格式: {video_format}")
+                        
+                        # YUV420p 格式转换
+                        if 'yuv420p' in video_format.lower():
+                            # YUV420p 格式: shape = (height * 3/2, width)
+                            if video_frame.shape[0] == frame.height * 3 // 2:
+                                # 转换为BGR
+                                video_frame = cv2.cvtColor(video_frame, cv2.COLOR_YUV2BGR_I420)
+                                logger.error(f"YUV420p转换后shape: {video_frame.shape}")
+                            else:
+                                logger.error(f"YUV420p shape不匹配: {video_frame.shape}, 期望: {frame.height * 3 // 2}")
+                                continue
+                        elif video_frame.ndim == 2:
                             # 灰度图，转换为BGR
                             video_frame = cv2.cvtColor(video_frame, cv2.COLOR_GRAY2BGR)
-                        elif ndim >= 3:
+                        elif video_frame.ndim >= 3:
                             last_dim = video_frame.shape[-1]
                             if last_dim == 3:
                                 # BGR转RGB
@@ -229,15 +241,16 @@ async def test_rtc_text_message():
 
                         if frame_count % 30 == 0:
                             logger.info(f"已保存 {frame_count} 帧视频")
+                        if frame_count > 100:
+                            break
 
                     except Exception as e:
                         logger.exception(f"视频轨道错误: {e}")
                         break
-                    finally:
-                        # 关闭视频写入器（确保执行）
-                        if video_writer is not None:
-                            video_writer.release()
-                        logger.error(f"视频保存完成: {video_file}, 共 {frame_count} 帧")
+                # 关闭视频写入器（确保执行）
+                if video_writer is not None:
+                    video_writer.release()
+                logger.error(f"视频保存完成: {video_file}, 共 {frame_count} 帧")
             elif track.kind == "audio":
                 logger.info(f"开始接收音频轨道: {track.id}")
                 
