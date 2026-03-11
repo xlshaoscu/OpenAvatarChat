@@ -108,6 +108,8 @@ def _configure_h264_hardware_encoding():
                         self.codec.options = {"realtime": "1", "profile": "baseline"}
                     
                     codec_created = True
+                    import traceback
+                    logger.error(f"H.264 encoder created: 调用堆栈: {traceback.format_stack()}")
                     logger.info(f"H.264 encoder created: {encoder_to_use}")
                     
                 except Exception as e:
