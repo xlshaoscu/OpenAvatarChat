@@ -241,7 +241,7 @@ async def test_rtc_text_message():
 
                         if frame_count % 30 == 0:
                             logger.info(f"已保存 {frame_count} 帧视频")
-                        if frame_count > 100:
+                        if frame_count > 600:
                             break
 
                     except Exception as e:
