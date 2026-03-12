@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import requests
 import random
@@ -99,11 +100,19 @@ async def test_send_video_audio():
         logger.exception("添加音视频轨道失败")
         return
 
+    # 5. 创建 Data Channel (关键区别！)
+    try:
+        data_channel = pc.createDataChannel('text')
+        logger.info("创建数据通道成功")
+    except Exception as e:
+        logger.exception("创建数据通道失败")
+        return
+
     # 生成 webrtc_id
     webrtc_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=7))
     logger.info(f"生成webrtc_id: {webrtc_id}")
 
-    # 5. 注册事件回调
+    # 6. 注册事件回调
     def send_ice_candidate(candidate):
         try:
             candidate_data = {
@@ -128,7 +137,26 @@ async def test_send_video_audio():
     def on_track(track):
         logger.info(f"收到远程轨道: {track.kind}")
 
-    # 6. 创建并设置 Local Description
+    # 7. Data Channel 事件回调 (关键区别！)
+    @data_channel.on("open")
+    def on_open():
+        logger.info("数据通道已打开")
+        test_message = json.dumps({
+            "type": "chat",
+            "data": "Hello from test client!"
+        })
+        data_channel.send(test_message)
+        logger.info("发送测试消息: Hello from test client!")
+
+    @data_channel.on("message")
+    def on_message(message):
+        logger.info(f"收到消息: {message}")
+
+    @data_channel.on("close")
+    def on_close():
+        logger.info("数据通道已关闭")
+
+    # 8. 创建并设置 Local Description
     logger.info("正在创建offer...")
     try:
         offer = await asyncio.wait_for(pc.createOffer(), timeout=30)
@@ -146,7 +174,7 @@ async def test_send_video_audio():
         await pc.close()
         return
 
-    # 7. 发送 Offer 到服务器
+    # 9. 发送 Offer 到服务器
     logger.info("发送offer到服务器...")
     try:
         offer_data = {
@@ -169,17 +197,29 @@ async def test_send_video_audio():
         await pc.close()
         return
 
-    # 8. 等待连接稳定
+    # 10. 等待连接稳定
     logger.info("等待连接建立（10秒）...")
     await asyncio.sleep(10)
 
     logger.info(f"ICE连接状态: {pc.iceConnectionState}")
+    logger.info(f"Data Channel状态: {data_channel.readyState}")
 
-    # 9. 持续发送音视频（30秒）
+    # 11. 检查 Data Channel 状态
+    if data_channel.readyState == "open":
+        logger.info("Data Channel 已打开，发送测试消息...")
+        test_message = json.dumps({
+            "type": "chat",
+            "data": "Hello from test client!"
+        })
+        data_channel.send(test_message)
+    else:
+        logger.warning(f"Data Channel 未打开，当前状态: {data_channel.readyState}")
+
+    # 12. 持续发送音视频（30秒）
     logger.info("正在发送视频和音频（30秒）...")
     await asyncio.sleep(30)
 
-    # 10. 关闭连接
+    # 13. 关闭连接
     logger.info("关闭连接...")
     try:
         await pc.close()
