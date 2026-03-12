@@ -22,14 +22,14 @@ logger = logging.getLogger(__name__)
 
 
 class BlackVideoTrack(VideoStreamTrack):
-    """黑色视频轨道 - 模拟摄像头输入"""
+    """随机视频轨道 - 模拟摄像头输入"""
     def __init__(self):
         super().__init__()
         self.kind = "video"
         self._pts = 0
 
     async def recv(self):
-        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        frame = np.random.randint(0, 256, (480, 640, 3), dtype=np.uint8)
         video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
         video_frame.pts = self._pts
         video_frame.time_base = Fraction(1, 30)
@@ -38,7 +38,7 @@ class BlackVideoTrack(VideoStreamTrack):
 
 
 class SilentAudioTrack(AudioStreamTrack):
-    """静音音频轨道 - 模拟麦克风输入"""
+    """随机音频轨道 - 模拟麦克风输入"""
     def __init__(self):
         super().__init__()
         self.kind = "audio"
@@ -47,7 +47,7 @@ class SilentAudioTrack(AudioStreamTrack):
         self._samples_per_frame = 960
 
     async def recv(self):
-        samples = np.zeros((1, self._samples_per_frame), dtype=np.int16)
+        samples = np.random.randint(-1000, 1000, (1, self._samples_per_frame), dtype=np.int16)
         audio_frame = av.AudioFrame.from_ndarray(samples, format="s16", layout="mono")
         audio_frame.sample_rate = self._sample_rate
         audio_frame.pts = self._pts
