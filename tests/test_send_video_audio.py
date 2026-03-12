@@ -1,0 +1,197 @@
+import asyncio
+import logging
+import requests
+import random
+import string
+import sys
+import numpy as np
+import av
+from fractions import Fraction
+
+from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration
+from aiortc.mediastreams import VideoStreamTrack, AudioStreamTrack
+from av import VideoFrame, AudioFrame
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
+
+
+class BlackVideoTrack(VideoStreamTrack):
+    """黑色视频轨道 - 模拟摄像头输入"""
+    def __init__(self):
+        super().__init__()
+        self.kind = "video"
+        self._pts = 0
+
+    async def recv(self):
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
+        video_frame.pts = self._pts
+        video_frame.time_base = Fraction(1, 30)
+        self._pts += 1
+        return video_frame
+
+
+class SilentAudioTrack(AudioStreamTrack):
+    """静音音频轨道 - 模拟麦克风输入"""
+    def __init__(self):
+        super().__init__()
+        self.kind = "audio"
+        self._pts = 0
+        self._sample_rate = 48000
+        self._samples_per_frame = 960
+
+    async def recv(self):
+        samples = np.zeros((1, self._samples_per_frame), dtype=np.int16)
+        audio_frame = av.AudioFrame.from_ndarray(samples, format="s16", layout="mono")
+        audio_frame.sample_rate = self._sample_rate
+        audio_frame.pts = self._pts
+        audio_frame.time_base = Fraction(1, self._sample_rate)
+        self._pts += self._samples_per_frame
+        return audio_frame
+
+
+async def test_send_video_audio():
+    """测试发送视频和音频到服务端"""
+    logger.info("开始发送视频和音频测试...")
+
+    server_url = "https://localhost:8282"
+    timeout = 30
+
+    # 1. 获取配置
+    try:
+        logger.info(f"正在连接服务器 {server_url}...")
+        response = requests.get(f"{server_url}/openavatarchat/initconfig", verify=False, timeout=timeout)
+        if response.status_code == 200:
+            config = response.json()
+            logger.info("获取配置成功")
+        else:
+            logger.exception(f"获取配置失败: {response.status_code}")
+            return
+    except Exception as e:
+        logger.exception("连接服务失败")
+        return
+
+    # 2. 创建 RTCPeerConnection
+    try:
+        rtc_config = RTCConfiguration()
+        rtc_config.iceServers = []
+        pc = RTCPeerConnection(rtc_config)
+        logger.info("创建RTCPeerConnection成功")
+    except Exception as e:
+        logger.exception("创建RTCPeerConnection失败")
+        return
+
+    # 3. 创建本地音视频轨道
+    video_track = BlackVideoTrack()
+    audio_track = SilentAudioTrack()
+
+    # 4. 添加轨道到 RTCPeerConnection
+    try:
+        video_sender = pc.addTrack(video_track)
+        audio_sender = pc.addTrack(audio_track)
+        logger.info(f"添加音视频轨道成功 - video: {video_sender}, audio: {audio_sender}")
+    except Exception as e:
+        logger.exception("添加音视频轨道失败")
+        return
+
+    # 生成 webrtc_id
+    webrtc_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=7))
+    logger.info(f"生成webrtc_id: {webrtc_id}")
+
+    # 5. 注册事件回调
+    def send_ice_candidate(candidate):
+        try:
+            candidate_data = {
+                "candidate": {
+                    "candidate": candidate.candidate,
+                    "sdpMid": candidate.sdpMid,
+                    "sdpMLineIndex": candidate.sdpMLineIndex
+                },
+                "webrtc_id": webrtc_id,
+                "type": "ice-candidate"
+            }
+            requests.post(f"{server_url}/webrtc/offer", json=candidate_data, verify=False, timeout=timeout)
+        except Exception as e:
+            logger.exception("发送ICE候选异常")
+
+    @pc.on("icecandidate")
+    def on_icecandidate(candidate):
+        if candidate:
+            send_ice_candidate(candidate)
+
+    @pc.on("track")
+    def on_track(track):
+        logger.info(f"收到远程轨道: {track.kind}")
+
+    # 6. 创建并设置 Local Description
+    logger.info("正在创建offer...")
+    try:
+        offer = await asyncio.wait_for(pc.createOffer(), timeout=30)
+        logger.info("创建offer成功")
+    except Exception as e:
+        logger.exception("创建offer失败")
+        await pc.close()
+        return
+
+    try:
+        await asyncio.wait_for(pc.setLocalDescription(offer), timeout=30)
+        logger.info("设置本地描述成功")
+    except Exception as e:
+        logger.exception("设置本地描述失败")
+        await pc.close()
+        return
+
+    # 7. 发送 Offer 到服务器
+    logger.info("发送offer到服务器...")
+    try:
+        offer_data = {
+            "sdp": offer.sdp,
+            "type": offer.type,
+            "webrtc_id": webrtc_id
+        }
+        response = requests.post(f"{server_url}/webrtc/offer", json=offer_data, verify=False, timeout=timeout)
+        if response.status_code == 200:
+            answer = response.json()
+            logger.info("收到服务器的answer")
+            await asyncio.wait_for(pc.setRemoteDescription(RTCSessionDescription(sdp=answer['sdp'], type=answer['type'])), timeout=30)
+            logger.info("设置远程描述成功")
+        else:
+            logger.exception(f"发送offer失败: {response.status_code}")
+            await pc.close()
+            return
+    except Exception as e:
+        logger.exception("发送offer异常")
+        await pc.close()
+        return
+
+    # 8. 等待连接稳定
+    logger.info("等待连接建立（10秒）...")
+    await asyncio.sleep(10)
+
+    logger.info(f"ICE连接状态: {pc.iceConnectionState}")
+
+    # 9. 持续发送音视频（30秒）
+    logger.info("正在发送视频和音频（30秒）...")
+    await asyncio.sleep(30)
+
+    # 10. 关闭连接
+    logger.info("关闭连接...")
+    try:
+        await pc.close()
+        logger.info("连接已关闭")
+    except Exception as e:
+        logger.exception("关闭连接异常")
+
+    logger.info("测试完成！")
+
+
+if __name__ == "__main__":
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    asyncio.run(test_send_video_audio())
